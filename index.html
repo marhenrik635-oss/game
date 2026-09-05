@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pantulan Bola Ganda</title>
+  <style>
+    :root {
+      --bg: #f4efe6;
+      --card: #ffffff;
+      --text: #23201d;
+      --text-dim: #70685f;
+      --border: #dfd7cc;
+      --ring: #4a4036;
+      --accent: #9c4125;
+      --btn: #2d2620;
+      --btn-text: #faf8f5;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      user-select: none;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 920px;
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 20px;
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .canvas-card, .panel-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .canvas-card {
+      align-items: center;
+      justify-content: center;
+    }
+
+    canvas {
+      display: block;
+      background: #faf8f5;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      max-width: 100%;
+      height: auto;
+    }
+
+    h1 {
+      font-size: 1.25rem;
+      margin-bottom: 4px;
+    }
+
+    p.subtitle {
+      color: var(--text-dim);
+      font-size: 0.85rem;
+      margin-bottom: 16px;
+    }
+
+    .stat-box {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 12px;
+      background: #f7f3ec;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      margin-bottom: 16px;
+    }
+
+    .stat-val {
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .control-group {
+      margin-bottom: 14px;
+    }
+
+    .control-group label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.82rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .control-group label span {
+      color: var(--text-dim);
+      font-weight: 400;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .btn-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    button {
+      padding: 10px;
+      border-radius: 6px;
+      border: none;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    button.primary {
+      background: var(--btn);
+      color: var(--btn-text);
+      grid-column: span 2;
+    }
+
+    button.secondary {
+      background: #ece5da;
+      color: var(--text);
+    }
+
+    button:hover {
+      opacity: 0.9;
+    }
+
+    .hint {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      margin-top: auto;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="canvas-card">
+      <canvas id="gameCanvas" width="520" height="520"></canvas>
+    </div>
+
+    <div class="panel-card">
+      <h1>Lingkaran Pantul</h1>
+      <p class="subtitle">Bola keluar dari lubang berlipat ganda x2</p>
+
+      <div class="stat-box">
+        <span>Jumlah Bola:</span>
+        <span class="stat-val" id="countVal">0</span>
+      </div>
+
+      <div class="control-group">
+        <label for="initialBalls">
+          Jumlah Bola Awal <span id="initVal">3</span>
+        </label>
+        <input type="range" id="initialBalls" min="1" max="20" value="3" />
+      </div>
+
+      <div class="control-group">
+        <label for="holePos">
+          Posisi Lubang (Atas - Bawah) <span id="posVal">Atas (270°)</span>
+        </label>
+        <input type="range" id="holePos" min="0" max="360" value="270" />
+      </div>
+
+      <div class="control-group">
+        <label for="holeSize">
+          Ukuran Lubang <span id="sizeVal">40°</span>
+        </label>
+        <input type="range" id="holeSize" min="15" max="140" value="40" />
+      </div>
+
+      <div class="control-group">
+        <label for="speedRange">
+          Kecepatan Pantul <span id="speedVal">4</span>
+        </label>
+        <input type="range" id="speedRange" min="2" max="8" value="4" />
+      </div>
+
+      <div class="btn-group">
+        <button class="primary" id="resetBtn">Reset & Mulai Ulang</button>
+        <button class="secondary" id="clearBtn">Hapus Semua</button>
+        <button class="secondary" id="addBallBtn">+1 Bola</button>
+      </div>
+
+      <div class="hint">
+        Karakter fisik: Bola memantul natural pada dinding lingkaran. Begitu keluar melalui celah, sistem mengalikan bola menjadi 2 (kembali masuk dengan arah pantul acak). Audio Web Audio API tanpa aset eksternal.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Audio synthesizer (tanpa file mp3 eksternal / tanpa neon/futuristik synth)
+    const AudioEngine = {
+      ctx: null,
+      init() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioCtx();
+        }
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      },
+      // Suara pantulan kayu/organik
+      bounce() {
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(140 + Math.random() * 30, now);
+        osc.frequency.exponentialRampToValueAtTime(60, now + 0.05);
+
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.06);
+      },
+      // Suara bola keluar lubang
+      exit() {
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(320, now);
+        osc.frequency.exponentialRampToValueAtTime(560, now + 0.12);
+
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.13);
+      },
+      // Suara pengali 2 (duplikasi)
+      multiply() {
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        [440, 660].forEach((freq, i) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          const t = now + i * 0.06;
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, t);
+
+          gain.gain.setValueAtTime(0.18, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.1);
+        });
+      }
+    };
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const countVal = document.getElementById('countVal');
+    const initialBallsInput = document.getElementById('initialBalls');
+    const initVal = document.getElementById('initVal');
+    const holePosInput = document.getElementById('holePos');
+    const posVal = document.getElementById('posVal');
+    const holeSizeInput = document.getElementById('holeSize');
+    const sizeVal = document.getElementById('sizeVal');
+    const speedRange = document.getElementById('speedRange');
+    const speedVal = document.getElementById('speedVal');
+    const resetBtn = document.getElementById('resetBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const addBallBtn = document.getElementById('addBallBtn');
+
+    const CENTER_X = canvas.width / 2;
+    const CENTER_Y = canvas.height / 2;
+    const RING_RADIUS = 180;
+    const BALL_RADIUS = 8;
+    const MAX_BALLS = 400; // ponytail: batas praktis canvas lag
+
+    let balls = [];
+
+    const NATURAL_PALETTE = ['#8c3b24', '#3d5a45', '#a26d2d', '#424b54', '#84596b', '#3b4d61'];
+
+    class Ball {
+      constructor(x, y, vx, vy, color) {
+        this.x = x;
+        this.y = y;
+        this.vx = vx;
+        this.vy = vy;
+        this.color = color || NATURAL_PALETTE[Math.floor(Math.random() * NATURAL_PALETTE.length)];
+        this.r = BALL_RADIUS;
+      }
+
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+      }
+    }
+
+    function getHoleRange() {
+      const posDeg = parseFloat(holePosInput.value);
+      const sizeDeg = parseFloat(holeSizeInput.value);
+
+      let start = (posDeg - sizeDeg / 2) % 360;
+      let end = (posDeg + sizeDeg / 2) % 360;
+      if (start < 0) start += 360;
+      if (end < 0) end += 360;
+
+      return {
+        startRad: (start * Math.PI) / 180,
+        endRad: (end * Math.PI) / 180,
+        startDeg: start,
+        endDeg: end,
+        sizeDeg
+      };
+    }
+
+    function isAngleInHole(angleRad, startRad, endRad) {
+      let a = (angleRad % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+      let s = (startRad % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+      let e = (endRad % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+
+      if (s < e) {
+        return a >= s && a <= e;
+      } else {
+        return a >= s || a <= e;
+      }
+    }
+
+    function createRandomBall() {
+      const baseSpeed = parseFloat(speedRange.value);
+      const angle = Math.random() * Math.PI * 2;
+      const dist = Math.random() * (RING_RADIUS - BALL_RADIUS - 15);
+      const x = CENTER_X + Math.cos(angle) * dist;
+      const y = CENTER_Y + Math.sin(angle) * dist;
+
+      const moveAngle = Math.random() * Math.PI * 2;
+      const vx = Math.cos(moveAngle) * baseSpeed;
+      const vy = Math.sin(moveAngle) * baseSpeed;
+
+      return new Ball(x, y, vx, vy);
+    }
+
+    function resetSimulation() {
+      AudioEngine.init();
+      balls = [];
+      const count = parseInt(initialBallsInput.value, 10);
+      for (let i = 0; i < count; i++) {
+        balls.push(createRandomBall());
+      }
+      updateCount();
+    }
+
+    function updateCount() {
+      countVal.textContent = balls.length;
+    }
+
+    function multiplyBall(origX, origY) {
+      if (balls.length >= MAX_BALLS) return;
+
+      AudioEngine.exit();
+      setTimeout(() => AudioEngine.multiply(), 40);
+
+      const baseSpeed = parseFloat(speedRange.value);
+
+      // Buat 2 bola pengganti di dekat batas dalam lubang
+      for (let i = 0; i < 2; i++) {
+        if (balls.length >= MAX_BALLS) break;
+        const angleToCenter = Math.atan2(CENTER_Y - origY, CENTER_X - origX);
+        const spread = (Math.random() - 0.5) * 0.9;
+        const finalAngle = angleToCenter + spread;
+
+        // Tempatkan sedikit ke dalam agar tidak langsung tembus lagi
+        const spawnDist = RING_RADIUS - BALL_RADIUS - 6;
+        const holeCenterDeg = parseFloat(holePosInput.value);
+        const rad = (holeCenterDeg * Math.PI) / 180;
+
+        const x = CENTER_X + Math.cos(rad) * spawnDist;
+        const y = CENTER_Y + Math.sin(rad) * spawnDist;
+
+        const vx = Math.cos(finalAngle) * baseSpeed;
+        const vy = Math.sin(finalAngle) * baseSpeed;
+
+        balls.push(new Ball(x, y, vx, vy));
+      }
+    }
+
+    function updatePhysics() {
+      const hole = getHoleRange();
+      const nextBalls = [];
+
+      for (let i = 0; i < balls.length; i++) {
+        const b = balls[i];
+        b.update();
+
+        const dx = b.x - CENTER_X;
+        const dy = b.y - CENTER_Y;
+        const dist = Math.hypot(dx, dy);
+
+        // Jika bola mencapai dinding lingkaran
+        if (dist + b.r >= RING_RADIUS) {
+          let ballAngle = Math.atan2(dy, dx);
+          if (ballAngle < 0) ballAngle += Math.PI * 2;
+
+          const inHole = isAngleInHole(ballAngle, hole.startRad, hole.endRad);
+
+          if (inHole) {
+            // Bola keluar lewat lubang -> picu x2
+            multiplyBall(b.x, b.y);
+            // Bola lama dihapus (tidak dimasukkan ke nextBalls)
+            continue;
+          } else {
+            // Pantulan elastis pada busur lingkaran tertutup
+            const nx = dx / dist;
+            const ny = dy / dist;
+
+            // Reposisi ke permukaan dalam lingkaran
+            b.x = CENTER_X + nx * (RING_RADIUS - b.r);
+            b.y = CENTER_Y + ny * (RING_RADIUS - b.r);
+
+            // Rumus pantulan vektor: v' = v - 2*(v . n)*n
+            const dot = b.vx * nx + b.vy * ny;
+            if (dot > 0) {
+              b.vx = b.vx - 2 * dot * nx;
+              b.vy = b.vy - 2 * dot * ny;
+              AudioEngine.bounce();
+            }
+          }
+        }
+
+        nextBalls.push(b);
+      }
+
+      balls = nextBalls;
+      updateCount();
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const hole = getHoleRange();
+
+      // Gambar area lingkaran
+      ctx.fillStyle = '#faf8f5';
+      ctx.beginPath();
+      ctx.arc(CENTER_X, CENTER_Y, RING_RADIUS, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Gambar busur lingkaran (tanpa lubang)
+      ctx.strokeStyle = '#3e3730';
+      ctx.lineWidth = 10;
+      ctx.lineCap = 'round';
+
+      ctx.beginPath();
+      // Gambar busur dari akhir lubang ke awal lubang searah jarum jam
+      ctx.arc(CENTER_X, CENTER_Y, RING_RADIUS, hole.endRad, hole.startRad, false);
+      ctx.stroke();
+
+      // Gambar indikator titik lubang (halus)
+      ctx.strokeStyle = '#c2b6a6';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.arc(CENTER_X, CENTER_Y, RING_RADIUS, hole.startRad, hole.endRad, false);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Gambar semua bola
+      for (const b of balls) {
+        ctx.fillStyle = b.color;
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Shading lembut non-neon
+        ctx.strokeStyle = '#221f1b';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+    }
+
+    function loop() {
+      updatePhysics();
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    // Event Listeners
+    initialBallsInput.addEventListener('input', (e) => {
+      initVal.textContent = e.target.value;
+    });
+
+    holePosInput.addEventListener('input', (e) => {
+      const deg = parseInt(e.target.value, 10);
+      let label = `${deg}°`;
+      if (deg >= 250 && deg <= 290) label = `Atas (${deg}°)`;
+      else if (deg >= 70 && deg <= 110) label = `Bawah (${deg}°)`;
+      else if (deg >= 160 && deg <= 200) label = `Kiri (${deg}°)`;
+      else if (deg <= 20 || deg >= 340) label = `Kanan (${deg}°)`;
+      posVal.textContent = label;
+    });
+
+    holeSizeInput.addEventListener('input', (e) => {
+      sizeVal.textContent = `${e.target.value}°`;
+    });
+
+    speedRange.addEventListener('input', (e) => {
+      speedVal.textContent = e.target.value;
+      const newSpeed = parseFloat(e.target.value);
+      // Sesuaikan laju bola yang sudah ada
+      for (const b of balls) {
+        const curSpeed = Math.hypot(b.vx, b.vy) || 1;
+        b.vx = (b.vx / curSpeed) * newSpeed;
+        b.vy = (b.vy / curSpeed) * newSpeed;
+      }
+    });
+
+    resetBtn.addEventListener('click', () => {
+      resetSimulation();
+    });
+
+    clearBtn.addEventListener('click', () => {
+      balls = [];
+      updateCount();
+    });
+
+    addBallBtn.addEventListener('click', () => {
+      AudioEngine.init();
+      if (balls.length < MAX_BALLS) {
+        balls.push(createRandomBall());
+        updateCount();
+      }
+    });
+
+    window.addEventListener('click', () => {
+      AudioEngine.init();
+    }, { once: true });
+
+    // Mulai simulasi awal
+    resetSimulation();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
