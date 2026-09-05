@@ -213,6 +213,13 @@
         <input type="range" id="gravityRange" min="0" max="0.5" step="0.02" value="0.18" />
       </div>
 
+      <div class="control-group">
+        <label for="multiplierRange">
+          Faktor Pengali Keluar <span id="multVal">x2</span>
+        </label>
+        <input type="range" id="multiplierRange" min="2" max="5" step="1" value="2" />
+      </div>
+
       <div class="btn-group">
         <button class="primary" id="resetBtn">Reset & Mulai Ulang</button>
         <button class="secondary" id="clearBtn">Hapus Semua</button>
@@ -220,7 +227,7 @@
       </div>
 
       <div class="hint">
-        Karakter fisik: Bola memantul natural pada dinding lingkaran. Begitu keluar melalui celah, sistem mengalikan bola menjadi 2 (kembali masuk dengan arah pantul acak). Audio Web Audio API tanpa aset eksternal.
+        Alur: Bola memantul di dalam. Saat melewati lubang, bola fisik benar-benar keluar meluncur ke luar lingkaran. Begitu berada di luar, bola meledak/membelah menjadi kelipatan (x2/lebih) lalu anak-anak bola meluncur kembali ke dalam lingkaran.
       </div>
     </div>
   </div>
@@ -313,6 +320,8 @@
     const speedVal = document.getElementById('speedVal');
     const gravityRange = document.getElementById('gravityRange');
     const gravityVal = document.getElementById('gravityVal');
+    const multiplierRange = document.getElementById('multiplierRange');
+    const multVal = document.getElementById('multVal');
     const resetBtn = document.getElementById('resetBtn');
     const clearBtn = document.getElementById('clearBtn');
     const addBallBtn = document.getElementById('addBallBtn');
@@ -328,19 +337,25 @@
     const NATURAL_PALETTE = ['#8c3b24', '#3d5a45', '#a26d2d', '#424b54', '#84596b', '#3b4d61'];
 
     class Ball {
-      constructor(x, y, vx, vy, color) {
+      constructor(x, y, vx, vy, color, isOutside = false) {
         this.x = x;
         this.y = y;
         this.vx = vx;
         this.vy = vy;
         this.color = color || NATURAL_PALETTE[Math.floor(Math.random() * NATURAL_PALETTE.length)];
         this.r = BALL_RADIUS;
+        this.isOutside = isOutside;
+        this.hasExited = false;
+        this.outsideTimer = 0;
       }
 
       update(gravity) {
         this.vy += gravity;
         this.x += this.vx;
         this.y += this.vy;
+        if (this.isOutside) {
+          this.outsideTimer++;
+        }
       }
     }
 
@@ -402,39 +417,34 @@
       countVal.textContent = balls.length;
     }
 
-    function multiplyBall(origX, origY) {
+    function spawnMultipliedBalls(fromX, fromY, count) {
       if (balls.length >= MAX_BALLS) return;
+      AudioEngine.multiply();
 
-      AudioEngine.exit();
-      setTimeout(() => AudioEngine.multiply(), 40);
+      const baseSpeed = Math.max(3, parseFloat(speedRange.value));
 
-      const baseSpeed = parseFloat(speedRange.value);
-
-      // Buat 2 bola pengganti di dekat batas dalam lubang
-      for (let i = 0; i < 2; i++) {
+      for (let i = 0; i < count; i++) {
         if (balls.length >= MAX_BALLS) break;
-        const angleToCenter = Math.atan2(CENTER_Y - origY, CENTER_X - origX);
-        const spread = (Math.random() - 0.5) * 0.9;
-        const finalAngle = angleToCenter + spread;
+        // Arahkan kembali menuju pusat lingkaran dengan variasi sudut
+        const baseAngle = Math.atan2(CENTER_Y - fromY, CENTER_X - fromX);
+        const spread = (Math.random() - 0.5) * 1.1;
+        const angle = baseAngle + spread;
 
-        // Tempatkan sedikit ke dalam agar tidak langsung tembus lagi
-        const spawnDist = RING_RADIUS - BALL_RADIUS - 6;
-        const holeCenterDeg = parseFloat(holePosInput.value);
-        const rad = (holeCenterDeg * Math.PI) / 180;
+        const speed = baseSpeed * (0.85 + Math.random() * 0.3);
+        const vx = Math.cos(angle) * speed;
+        const vy = Math.sin(angle) * speed;
 
-        const x = CENTER_X + Math.cos(rad) * spawnDist;
-        const y = CENTER_Y + Math.sin(rad) * spawnDist;
-
-        const vx = Math.cos(finalAngle) * baseSpeed;
-        const vy = Math.sin(finalAngle) * baseSpeed;
-
-        balls.push(new Ball(x, y, vx, vy));
+        // Bola baru ditandai di luar tapi sedang menuju masuk ke dalam lingkaran
+        const child = new Ball(fromX, fromY, vx, vy, null, true);
+        child.outsideTimer = 999; // cegah duplikasi berulang
+        balls.push(child);
       }
     }
 
     function updatePhysics() {
       const hole = getHoleRange();
       const gravity = parseFloat(gravityRange.value);
+      const multFactor = parseInt(multiplierRange.value, 10);
       const RESTITUTION = 0.98; // ponytail: sedikit redaman pantul natural
       const nextBalls = [];
 
@@ -446,34 +456,54 @@
         const dy = b.y - CENTER_Y;
         const dist = Math.hypot(dx, dy);
 
-        // Jika bola mencapai dinding lingkaran
-        if (dist + b.r >= RING_RADIUS) {
-          let ballAngle = Math.atan2(dy, dx);
-          if (ballAngle < 0) ballAngle += Math.PI * 2;
+        // Jika bola sedang di dalam lingkaran
+        if (!b.isOutside) {
+          if (dist + b.r >= RING_RADIUS) {
+            let ballAngle = Math.atan2(dy, dx);
+            if (ballAngle < 0) ballAngle += Math.PI * 2;
 
-          const inHole = isAngleInHole(ballAngle, hole.startRad, hole.endRad);
+            const inHole = isAngleInHole(ballAngle, hole.startRad, hole.endRad);
 
-          if (inHole) {
-            // Bola keluar lewat lubang -> picu x2
-            multiplyBall(b.x, b.y);
-            // Bola lama dihapus (tidak dimasukkan ke nextBalls)
-            continue;
-          } else {
-            // Pantulan elastis pada busur lingkaran tertutup
-            const nx = dx / dist;
-            const ny = dy / dist;
+            if (inHole) {
+              // Bola lolos dan mulai keluar secara fisik
+              b.isOutside = true;
+              b.hasExited = true;
+              b.outsideTimer = 0;
+              AudioEngine.exit();
+            } else {
+              // Pantulan elastis pada dinding tertutup
+              const nx = dx / dist;
+              const ny = dy / dist;
 
-            // Reposisi ke permukaan dalam lingkaran
-            b.x = CENTER_X + nx * (RING_RADIUS - b.r);
-            b.y = CENTER_Y + ny * (RING_RADIUS - b.r);
+              b.x = CENTER_X + nx * (RING_RADIUS - b.r);
+              b.y = CENTER_Y + ny * (RING_RADIUS - b.r);
 
-            // Rumus pantulan vektor: v' = v - (1 + e)*(v . n)*n
-            const dot = b.vx * nx + b.vy * ny;
-            if (dot > 0) {
-              b.vx = (b.vx - (1 + RESTITUTION) * dot * nx);
-              b.vy = (b.vy - (1 + RESTITUTION) * dot * ny);
-              AudioEngine.bounce();
+              const dot = b.vx * nx + b.vy * ny;
+              if (dot > 0) {
+                b.vx = b.vx - (1 + RESTITUTION) * dot * nx;
+                b.vy = b.vy - (1 + RESTITUTION) * dot * ny;
+                AudioEngine.bounce();
+              }
             }
+          }
+        } else {
+          // Bola sudah di luar lingkaran
+          // Jika baru saja keluar dan mencapai jarak di luar ring, lakukan penggandaan (x2 atau lebih)
+          if (b.hasExited && (dist >= RING_RADIUS + 24 || b.outsideTimer > 18)) {
+            spawnMultipliedBalls(b.x, b.y, multFactor);
+            // Bola asli hancur / terbelah menjadi bola-bola baru
+            continue;
+          }
+
+          // Jika bola di luar kembali masuk menembus lingkaran
+          if (dist + b.r < RING_RADIUS) {
+            b.isOutside = false;
+            b.hasExited = false;
+          }
+
+          // Hapus jika terlempar terlalu jauh keluar canvas
+          if (b.x < -40 || b.x > canvas.width + 40 || b.y < -40 || b.y > canvas.height + 40) {
+            continue;
           }
         }
 
@@ -566,6 +596,10 @@
 
     gravityRange.addEventListener('input', (e) => {
       gravityVal.textContent = e.target.value;
+    });
+
+    multiplierRange.addEventListener('input', (e) => {
+      multVal.textContent = `x${e.target.value}`;
     });
 
     resetBtn.addEventListener('click', () => {
