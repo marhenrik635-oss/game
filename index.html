@@ -417,26 +417,28 @@
       countVal.textContent = balls.length;
     }
 
-    function spawnMultipliedBalls(fromX, fromY, count) {
+    function spawnMultipliedBalls(count) {
       if (balls.length >= MAX_BALLS) return;
       AudioEngine.multiply();
 
-      const baseSpeed = Math.max(3, parseFloat(speedRange.value));
+      const baseSpeed = parseFloat(speedRange.value);
 
       for (let i = 0; i < count; i++) {
         if (balls.length >= MAX_BALLS) break;
-        // Arahkan kembali menuju pusat lingkaran dengan variasi sudut
-        const baseAngle = Math.atan2(CENTER_Y - fromY, CENTER_X - fromX);
-        const spread = (Math.random() - 0.5) * 1.1;
-        const angle = baseAngle + spread;
+        // Spawn tepat di tengah-tengah lingkaran (dengan sebaran kecil agar tidak bertumpuk)
+        const angle = Math.random() * Math.PI * 2;
+        const offset = Math.random() * 8;
+        const x = CENTER_X + Math.cos(angle) * offset;
+        const y = CENTER_Y + Math.sin(angle) * offset;
 
-        const speed = baseSpeed * (0.85 + Math.random() * 0.3);
-        const vx = Math.cos(angle) * speed;
-        const vy = Math.sin(angle) * speed;
+        // Berikan kecepatan acak ke arah dalam
+        const moveAngle = Math.random() * Math.PI * 2;
+        const speed = baseSpeed * (0.8 + Math.random() * 0.4);
+        const vx = Math.cos(moveAngle) * speed;
+        const vy = Math.sin(moveAngle) * speed;
 
-        // Bola baru ditandai di luar tapi sedang menuju masuk ke dalam lingkaran
-        const child = new Ball(fromX, fromY, vx, vy, null, true);
-        child.outsideTimer = 999; // cegah duplikasi berulang
+        // Bola hasil perkalian berstatus normal di dalam lingkaran
+        const child = new Ball(x, y, vx, vy, null, false);
         balls.push(child);
       }
     }
@@ -488,10 +490,10 @@
           }
         } else {
           // Bola sudah di luar lingkaran
-          // Jika baru saja keluar dan mencapai jarak di luar ring, lakukan penggandaan (x2 atau lebih)
-          if (b.hasExited && (dist >= RING_RADIUS + 24 || b.outsideTimer > 18)) {
-            spawnMultipliedBalls(b.x, b.y, multFactor);
-            // Bola asli hancur / terbelah menjadi bola-bola baru
+          // Begitu mencapai jarak di luar ring, kalikan dan spawn di tengah-tengah lingkaran
+          if (b.hasExited && (dist >= RING_RADIUS + 20 || b.outsideTimer > 15)) {
+            spawnMultipliedBalls(multFactor);
+            // Bola yang keluar dihancurkan/dihapus
             continue;
           }
 
