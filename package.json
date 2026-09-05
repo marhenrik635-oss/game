@@ -1,0 +1,8 @@
+{
+  "name": "potion-scramble",
+  "version": "1.0.0",
+  "description": "Herbal Alchemist - cozy puzzle scramble game",
+  "scripts": {
+    "start": "npx serve ."
+  }
+}
