@@ -206,6 +206,13 @@
         <input type="range" id="speedRange" min="2" max="8" value="4" />
       </div>
 
+      <div class="control-group">
+        <label for="gravityRange">
+          Gravitasi <span id="gravityVal">0.18</span>
+        </label>
+        <input type="range" id="gravityRange" min="0" max="0.5" step="0.02" value="0.18" />
+      </div>
+
       <div class="btn-group">
         <button class="primary" id="resetBtn">Reset & Mulai Ulang</button>
         <button class="secondary" id="clearBtn">Hapus Semua</button>
@@ -304,6 +311,8 @@
     const sizeVal = document.getElementById('sizeVal');
     const speedRange = document.getElementById('speedRange');
     const speedVal = document.getElementById('speedVal');
+    const gravityRange = document.getElementById('gravityRange');
+    const gravityVal = document.getElementById('gravityVal');
     const resetBtn = document.getElementById('resetBtn');
     const clearBtn = document.getElementById('clearBtn');
     const addBallBtn = document.getElementById('addBallBtn');
@@ -328,7 +337,8 @@
         this.r = BALL_RADIUS;
       }
 
-      update() {
+      update(gravity) {
+        this.vy += gravity;
         this.x += this.vx;
         this.y += this.vy;
       }
@@ -424,11 +434,13 @@
 
     function updatePhysics() {
       const hole = getHoleRange();
+      const gravity = parseFloat(gravityRange.value);
+      const RESTITUTION = 0.98; // ponytail: sedikit redaman pantul natural
       const nextBalls = [];
 
       for (let i = 0; i < balls.length; i++) {
         const b = balls[i];
-        b.update();
+        b.update(gravity);
 
         const dx = b.x - CENTER_X;
         const dy = b.y - CENTER_Y;
@@ -455,11 +467,11 @@
             b.x = CENTER_X + nx * (RING_RADIUS - b.r);
             b.y = CENTER_Y + ny * (RING_RADIUS - b.r);
 
-            // Rumus pantulan vektor: v' = v - 2*(v . n)*n
+            // Rumus pantulan vektor: v' = v - (1 + e)*(v . n)*n
             const dot = b.vx * nx + b.vy * ny;
             if (dot > 0) {
-              b.vx = b.vx - 2 * dot * nx;
-              b.vy = b.vy - 2 * dot * ny;
+              b.vx = (b.vx - (1 + RESTITUTION) * dot * nx);
+              b.vy = (b.vy - (1 + RESTITUTION) * dot * ny);
               AudioEngine.bounce();
             }
           }
@@ -550,6 +562,10 @@
         b.vx = (b.vx / curSpeed) * newSpeed;
         b.vy = (b.vy / curSpeed) * newSpeed;
       }
+    });
+
+    gravityRange.addEventListener('input', (e) => {
+      gravityVal.textContent = e.target.value;
     });
 
     resetBtn.addEventListener('click', () => {
